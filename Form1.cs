@@ -44,7 +44,7 @@ namespace MergeTable
         };
 
         private static readonly Color NO_MATCH = Color.FromArgb(0xFF, 0x9C, 0x9C); // Light Red //
-        private static readonly Color LIGHT_NO_MATCH = Color.FromArgb(0xFF, 0xF0, 0xF0); // Light Light Red //
+        private static readonly Color LIGHT_NO_MATCH = Color.FromArgb(0xFF, 0xE0, 0xE0); // Light Light Red //
         private static readonly Color SLIGHT_MATCH = Color.FromArgb(0xFF, 0xFC, 0x9C); // Light Yellow //
         private static readonly Color ALL_GOOD = Color.White;
 
@@ -358,11 +358,11 @@ namespace MergeTable
             // Clean all empty cols first //
 
             for (int left = 0; left < lstLeft.Items.Count; left++)
-                if (string.IsNullOrWhiteSpace(lstLeft.Items[left].Text.Trim()))
+                if (string.IsNullOrWhiteSpace(lstLeft.Items[left].Text.Trim())  || lstLeft.Items[left].BackColor == LIGHT_NO_MATCH)
                     lstLeft.Items.RemoveAt(left--);
 
             for (int right = 0; right < lstRight.Items.Count; right++)
-                if (string.IsNullOrWhiteSpace(lstRight.Items[right].Text.Trim()))
+                if (string.IsNullOrWhiteSpace(lstRight.Items[right].Text.Trim())  || lstRight.Items[right].BackColor == LIGHT_NO_MATCH)
                     lstRight.Items.RemoveAt(right--);
 
             // Compare left to right //
@@ -393,7 +393,7 @@ namespace MergeTable
                 if (!found)
                 {
                     lstLeft.Items[il].BackColor = NO_MATCH;
-                    lstRight.Items.Insert(il, new ListViewItem(string.Empty) { BackColor = LIGHT_NO_MATCH });
+                    lstRight.Items.Insert(il, new ListViewItem(lstLeft.Items[il].Text) { BackColor = LIGHT_NO_MATCH, ForeColor = NO_MATCH });
                 }
             }
 
@@ -403,11 +403,11 @@ namespace MergeTable
                 bool found = false;
                 ListViewItem right = lstRight.Items[ir];
 
-                if (String.IsNullOrWhiteSpace(right.Text)) continue;
+                if (String.IsNullOrWhiteSpace(right.Text) || right.BackColor == LIGHT_NO_MATCH) continue;
 
                 for (int il = 0; il < lstLeft.Items.Count; il++)
                 {
-                    ListViewItem left = lstRight.Items[ir];
+                    ListViewItem left = lstLeft.Items[il];
                     if (right.Text.Equals(left.Text, StringComparison.OrdinalIgnoreCase))
                     {
                         if (right.Text.MatchesTextButNotCase(left.Text))
@@ -427,9 +427,63 @@ namespace MergeTable
                 if (!found)
                 {
                     lstRight.Items[ir].BackColor = NO_MATCH;
-                    lstLeft.Items.Insert(ir, new ListViewItem(string.Empty) { BackColor = LIGHT_NO_MATCH });
+                    lstLeft.Items.Insert(ir, new ListViewItem(lstRight.Items[ir].Text) { BackColor = LIGHT_NO_MATCH, ForeColor = NO_MATCH });
                 }
             }
+        }
+
+        private void Merge(int indexLeft, int indexRight, MergeDirection direction)
+        {
+            var left = lstLeft.Items[indexLeft];
+            var right = lstRight.Items[indexRight];
+
+            if (IsDemo)
+            {
+                switch (direction)
+                {
+                    // Moving item from right and putting it left //
+                    case MergeDirection.Left:
+                        if (left.BackColor == LIGHT_NO_MATCH)
+                        {
+                            lstLeft.Items[indexLeft].Text = lstRight.Items[indexRight].Text;
+                            lstLeft.Items[indexLeft].ForeColor = Color.Black;
+                            lstLeft.Items[indexLeft].BackColor = ALL_GOOD;
+                            lstRight.Items[indexRight].BackColor = ALL_GOOD;
+                        }
+                        break;
+
+                    // Moving item from left and putting it right //
+                    case MergeDirection.Right:
+                        if (right.BackColor == LIGHT_NO_MATCH)
+                        {
+                            lstRight.Items[indexRight].Text = lstLeft.Items[indexLeft].Text;
+                            lstRight.Items[indexRight].ForeColor = Color.Black;
+                            lstRight.Items[indexLeft].BackColor = ALL_GOOD;
+                            lstLeft.Items[indexLeft].BackColor = ALL_GOOD;
+                        }
+                        break;
+
+                }
+
+            }
+            else
+            {
+
+            }
+        }
+
+        private void lstLeft_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            btnGoRight.Enabled = lstLeft.SelectedItems.Count > 0 && lstLeft.SelectedItems[0].BackColor != LIGHT_NO_MATCH;
+            btnGoLeft.Enabled = lstRight.SelectedItems.Count > 0 && lstRight.SelectedItems[0].BackColor != LIGHT_NO_MATCH;
+            lstRight.SelectedItems.Clear();
+        }
+
+        private void lstRight_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            btnGoRight.Enabled = lstLeft.SelectedItems.Count > 0 && lstLeft.SelectedItems[0].BackColor != LIGHT_NO_MATCH;
+            btnGoLeft.Enabled = lstRight.SelectedItems.Count > 0 && lstRight.SelectedItems[0].BackColor != LIGHT_NO_MATCH;
+            lstLeft.SelectedItems.Clear();
         }
 
         private void LoadDemo()
@@ -466,14 +520,36 @@ namespace MergeTable
             }
         }
 
-        private void lstLeft_SelectedIndexChanged(object sender, EventArgs e)
+        private enum MergeDirection
         {
-            btnGoRight.Enabled = lstLeft.FocusedItem != null;
+            Left,
+            Right
         }
 
-        private void lstRight_SelectedIndexChanged(object sender, EventArgs e)
+        private void btnGoRight_Click(object sender, EventArgs e)
         {
-            btnGoLeft.Enabled = lstRight.FocusedItem != null;
+            if(lstLeft.SelectedItems.Count <= 0)
+                return;
+
+            var left = lstLeft.SelectedItems[0];
+
+            int index = lstLeft.Items.IndexOf(left);
+
+            Merge(index, index, MergeDirection.Right);
         }
+
+        private void btnGoLeft_Click(object sender, EventArgs e)
+        {
+            if (lstRight.SelectedItems.Count <= 0)
+                return;
+
+            var right = lstRight.SelectedItems[0];
+
+            int index = lstRight.Items.IndexOf(right);
+
+            Merge(index, index, MergeDirection.Left);
+        }
+
+
     }
 }
